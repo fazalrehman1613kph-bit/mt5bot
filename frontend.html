@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Trading Bot Dashboard — MT5</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --bg2: #0d1320;
+    --bg3: #111927;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.15);
+    --text: #e8edf5;
+    --muted: #6b7a94;
+    --accent: #00e5b4;
+    --accent2: #0af;
+    --buy: #00e5b4;
+    --sell: #ff4c6a;
+    --warn: #ffa940;
+    --card-bg: #0d1320;
+    --card-border: rgba(255,255,255,0.06);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,180,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,180,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 500px;
+    background: radial-gradient(ellipse, rgba(0,229,180,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 36px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,12,20,0.9);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,229,180,0.08);
+    border: 1px solid rgba(0,229,180,0.2);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--mono);
+    padding: 5px 12px;
+    border-radius: 100px;
+    letter-spacing: 0.5px;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  .time-display {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  main {
+    position: relative;
+    z-index: 5;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 32px 24px 60px;
+  }
+
+  /* MT5 Connection Panel */
+  .connection-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+
+  .connection-title {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .connection-status {
+    font-size: 12px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .connection-status.connected { color: var(--buy); background: rgba(0,229,180,0.1); }
+  .connection-status.disconnected { color: var(--sell); background: rgba(255,76,106,0.1); }
+
+  .creds-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .creds-group {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .creds-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .creds-group input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+  }
+
+  .creds-group input:focus {
+    border-color: rgba(0,229,180,0.4);
+    background: rgba(0,229,180,0.04);
+  }
+
+  .creds-group input::placeholder {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .connect-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .connect-btn {
+    background: linear-gradient(135deg, var(--accent), #00b890);
+    border: none;
+    border-radius: 10px;
+    color: #000;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .disconnect-btn {
+    background: rgba(255,76,106,0.15);
+    border: 1px solid rgba(255,76,106,0.3);
+    border-radius: 10px;
+    color: var(--sell);
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .account-info {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(0,229,180,0.05);
+    border-radius: 12px;
+    border-left: 3px solid var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .account-info span { color: var(--muted); }
+  .account-info strong { color: var(--text); }
+
+  /* Market Config Panel */
+  .controls-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+
+  .controls-title {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .controls-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .form-group label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .form-group input, .form-group select {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 11px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  .form-group input:focus, .form-group select:focus {
+    border-color: rgba(0,229,180,0.4);
+    background: rgba(0,229,180,0.04);
+  }
+
+  .select-wrap { position: relative; }
+  .select-wrap::after {
+    content: '▾';
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+    font-size: 12px;
+  }
+
+  .analyze-btn {
+    background: linear-gradient(135deg, var(--accent), #00b890);
+    border: none;
+    border-radius: 10px;
+    color: #000;
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 11px 32px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 160px;
+    justify-content: center;
+  }
+
+  .analyze-btn:hover:not(:disabled) { opacity: 0.9; }
+  .analyze-btn:active { transform: scale(0.98); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-accent, var(--accent)), transparent);
+    opacity: 0.6;
+  }
+
+  .stat-card.buy-card { --card-accent: var(--buy); }
+  .stat-card.sell-card { --card-accent: var(--sell); }
+  .stat-card.adx-card { --card-accent: #a78bfa; }
+  .stat-card.price-card { --card-accent: var(--accent2); }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-value {
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .gauges-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .gauge-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .gauge-title { font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--muted); }
+  .gauge-wrap { position: relative; width: 160px; height: 90px; }
+  .gauge-svg { overflow: visible; }
+  .gauge-number {
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 800;
+  }
+
+  .signal-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .signal-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .action-display { text-align: center; padding: 20px; }
+  .action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 800;
+    padding: 14px 32px;
+    border-radius: 12px;
+  }
+  .action-badge.buy { background: rgba(0,229,180,0.1); border: 2px solid rgba(0,229,180,0.4); color: var(--buy); }
+  .action-badge.sell { background: rgba(255,76,106,0.1); border: 2px solid rgba(255,76,106,0.4); color: var(--sell); }
+  .action-badge.hold { background: rgba(255,169,64,0.1); border: 2px solid rgba(255,169,64,0.3); color: var(--warn); }
+
+  .tpsl-table { width: 100%; }
+  .tpsl-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tpsl-row:last-child { border-bottom: none; }
+  .tpsl-label { font-size: 12px; color: var(--muted); text-transform: uppercase; }
+  .tpsl-val.tp { color: var(--buy); font-family: var(--mono); font-weight: 600; }
+  .tpsl-val.sl { color: var(--sell); font-family: var(--mono); font-weight: 600; }
+
+  .bars-section { margin-bottom: 28px; }
+  .bar-item {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 12px;
+  }
+  .bar-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .bar-track { height: 8px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 100px; transition: width 1s ease; width: 0%; }
+  .bar-fill.buy { background: linear-gradient(90deg, #00b890, var(--buy)); }
+  .bar-fill.sell { background: linear-gradient(90deg, #c4002a, var(--sell)); }
+
+  .alert-log-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .alert-log-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-log-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+  }
+  .alert-log-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .alert-log-dot.buy { background: var(--buy); }
+  .alert-log-dot.sell { background: var(--sell); }
+
+  .history-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table th { text-align: left; padding: 12px 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+  .history-table td { padding: 10px 8px; font-family: var(--mono); font-size: 12px; border-bottom: 1px solid var(--border); }
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill.buy { background: rgba(0,229,180,0.12); color: var(--buy); }
+  .pill.sell { background: rgba(255,76,106,0.12); color: var(--sell); }
+  .pill.hold { background: rgba(255,169,64,0.1); color: var(--warn); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+
+  .notif-container {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .notif {
+    pointer-events: all;
+    background: #0d1320;
+    border-radius: 14px;
+    min-width: 320px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 20px 50px rgba(0,0,0,0.6);
+    overflow: hidden;
+    animation: slideIn 0.4s ease forwards;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(110%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .notif.dismiss { animation: slideOut 0.3s ease forwards; }
+  @keyframes slideOut { to { transform: translateX(110%); opacity: 0; } }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text">AI<span>Trade</span> Bot</div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div id="clock" class="time-display">--:--:--</div>
+  </div>
+</header>
+
+<div class="notif-container" id="notifContainer"></div>
+
+<main>
+  <!-- MT5 CONNECTION PANEL -->
+  <div class="connection-panel">
+    <div class="connection-title">
+      🔌 MT5 Terminal Connection
+      <span id="connStatusBadge" class="connection-status disconnected">● Disconnected</span>
+    </div>
+    <div class="creds-row">
+      <div class="creds-group">
+        <label>LOGIN (integer)</label>
+        <input type="number" id="mt5Login" placeholder="e.g., 12345678">
+      </div>
+      <div class="creds-group">
+        <label>PASSWORD</label>
+        <input type="password" id="mt5Password" placeholder="Your MT5 password">
+      </div>
+      <div class="creds-group">
+        <label>SERVER NAME</label>
+        <input type="text" id="mt5Server" placeholder="e.g., ICmarkets-Demo">
+      </div>
+      <div class="creds-group">
+        <label>PATH (optional)</label>
+        <input type="text" id="mt5Path" placeholder="C:\Program Files\MetaTrader 5\terminal64.exe">
+      </div>
+    </div>
+    <div class="connect-actions">
+      <button class="connect-btn" id="connectBtn" onclick="connectMT5()">🔌 Connect to MT5</button>
+      <button class="disconnect-btn" id="disconnectBtn" onclick="disconnectMT5()" style="display: none;">🔌 Disconnect</button>
+    </div>
+    <div id="accountInfoPanel" style="display: none;" class="account-info"></div>
+  </div>
+
+  <!-- MARKET CONFIGURATION -->
+  <div class="controls-panel">
+    <div class="controls-title">⚙ Market Configuration</div>
+    <div class="controls-row">
+      <div class="form-group">
+        <label>Symbol</label>
+        <input type="text" id="symbolInput" value="XAUUSD" placeholder="e.g. XAUUSD, EURUSD">
+      </div>
+      <div class="form-group">
+        <label>Timeframe</label>
+        <div class="select-wrap">
+          <select id="tfSelect">
+            <option value="1m">1 Minute</option><option value="5m">5 Minutes</option>
+            <option value="15m" selected>15 Minutes</option><option value="1H">1 Hour</option>
+            <option value="4H">4 Hours</option><option value="1D">1 Day</option><option value="1W">1 Week</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Signal Threshold (%)</label>
+        <input type="number" id="thresholdInput" value="70" min="50" max="99" step="1">
+      </div>
+      <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">
+        <span class="btn-spinner" id="btnSpinner"></span>
+        <span id="btnText">▶ Analyze</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- STATS GRID -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card buy-card"><div class="stat-label">📈 Buy Signal</div><div class="stat-value" id="statBuy" style="color: var(--buy);">--</div><div class="stat-sub" id="statBuySub">Awaiting analysis</div></div>
+    <div class="stat-card sell-card"><div class="stat-label">📉 Sell Signal</div><div class="stat-value" id="statSell" style="color: var(--sell);">--</div><div class="stat-sub" id="statSellSub">Awaiting analysis</div></div>
+    <div class="stat-card price-card"><div class="stat-label">💱 Price</div><div class="stat-value" id="statPrice" style="color: var(--accent2);">--</div><div class="stat-sub" id="statPriceSub">Last close</div></div>
+    <div class="stat-card adx-card"><div class="stat-label">💪 ADX</div><div class="stat-value" id="statAdx" style="color: #a78bfa;">--</div><div class="stat-sub" id="statAdxSub">Trend strength</div></div>
+  </div>
+
+  <!-- GAUGES -->
+  <div class="gauges-row">
+    <div class="gauge-card"><div class="gauge-title">🟢 Buy Pressure</div><div class="gauge-wrap"><svg width="160" height="90" viewBox="0 0 160 90"><path d="M 10 85 A 70 70 0 0 1 150 85" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="12"/><path id="buyArc" d="M 10 85 A 70 70 0 0 1 150 85" fill="none" stroke="var(--buy)" stroke-width="12" stroke-dasharray="220" stroke-dashoffset="220"/></svg><div class="gauge-number" id="buyGaugeNum" style="color: var(--buy);">0%</div></div></div>
+    <div class="gauge-card"><div class="gauge-title">🔴 Sell Pressure</div><div class="gauge-wrap"><svg width="160" height="90" viewBox="0 0 160 90"><path d="M 10 85 A 70 70 0 0 1 150 85" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="12"/><path id="sellArc" d="M 10 85 A 70 70 0 0 1 150 85" fill="none" stroke="var(--sell)" stroke-width="12" stroke-dasharray="220" stroke-dashoffset="220"/></svg><div class="gauge-number" id="sellGaugeNum" style="color: var(--sell);">0%</div></div></div>
+  </div>
+
+  <!-- SIGNAL ROW -->
+  <div class="signal-row">
+    <div class="signal-panel"><div class="panel-title">🎯 Suggested Action</div><div class="action-display"><div class="action-badge hold" id="actionBadge">⏳ PENDING</div><div class="action-sub" id="actionSub">Run analysis to get signal</div></div></div>
+    <div class="signal-panel"><div class="panel-title">📐 Trade Levels</div><div class="tpsl-table"><div class="tpsl-row"><span class="tpsl-label">🎯 Take Profit</span><span class="tpsl-val tp" id="tpVal">---</span></div><div class="tpsl-row"><span class="tpsl-label">🛑 Stop Loss</span><span class="tpsl-val sl" id="slVal">---</span></div><div class="tpsl-row"><span class="tpsl-label">💱 Last Close</span><span class="tpsl-val tp" id="closeVal" style="color:var(--text)">---</span></div><div class="tpsl-row"><span class="tpsl-label">💪 ADX</span><span class="tpsl-val sl" id="adxVal2" style="color:#a78bfa">---</span></div></div></div>
+  </div>
+
+  <!-- BARS -->
+  <div class="bars-section">
+    <div class="bar-item"><div class="bar-header"><span class="bar-name">📈 Buy Probability</span><span class="bar-pct buy" id="buyBarPct" style="color: var(--buy);">0%</span></div><div class="bar-track"><div class="bar-fill buy" id="buyBar" style="width: 0%"></div></div></div>
+    <div class="bar-item"><div class="bar-header"><span class="bar-name">📉 Sell Probability</span><span class="bar-pct sell" id="sellBarPct" style="color: var(--sell);">0%</span></div><div class="bar-track"><div class="bar-fill sell" id="sellBar" style="width: 0%"></div></div></div>
+  </div>
+
+  <!-- ALERT LOG -->
+  <div class="alert-log-panel"><div class="panel-title">🔔 Alert Log</div><div id="alertLog" class="alert-log-list"><div class="empty-state">No alerts yet</div></div></div>
+
+  <!-- HISTORY -->
+  <div class="history-panel"><div class="panel-title">📋 Analysis History</div><div id="historyBody"><div class="empty-state">No analyses yet</div></div></div>
+</main>
+
+<script>
+// ===== CLOCK =====
+function updateClock() { document.getElementById('clock').textContent = new Date().toUTCString().slice(17, 25) + ' UTC'; }
+setInterval(updateClock, 1000); updateClock();
+
+// ===== STATE =====
+let mt5Connected = false;
+let analysisHistory = [];
+const API_URL = 'http://localhost:5000';
+
+// ===== GAUGE HELPER =====
+function updateGauge(id, pct) {
+  const arcLen = 220;
+  const offset = arcLen - (pct / 100) * arcLen;
+  const arc = document.getElementById(id);
+  if (arc) arc.style.strokeDashoffset = offset;
+}
+
+function updateGaugeNumber(numId, pct) {
+  const num = document.getElementById(numId);
+  if (num) num.innerHTML = Math.round(pct) + '%';
+}
+
+// ===== CHECK MT5 CONNECTION STATUS =====
+async function checkConnectionStatus() {
+  try {
+    const res = await fetch(API_URL + '/health');
+    const data = await res.json();
+    if (data.mt5_connected) {
+      mt5Connected = true;
+      document.getElementById('connStatusBadge').className = 'connection-status connected';
+      document.getElementById('connStatusBadge').innerHTML = '● Connected';
+      document.getElementById('disconnectBtn').style.display = 'block';
+      document.getElementById('connectBtn').style.display = 'none';
+      const panel = document.getElementById('accountInfoPanel');
+      panel.style.display = 'flex';
+      panel.innerHTML = `<span>👤 ${data.name || ''}</span><span>🏦 ${data.broker || ''}</span><span>💰 ${data.balance || 0} ${data.currency || ''}</span><span>⚡ Leverage: ${data.leverage || 0}</span>`;
+    } else {
+      mt5Connected = false;
+      document.getElementById('connStatusBadge').className = 'connection-status disconnected';
+      document.getElementById('connStatusBadge').innerHTML = '● Disconnected';
+      document.getElementById('disconnectBtn').style.display = 'none';
+      document.getElementById('connectBtn').style.display = 'flex';
+      document.getElementById('accountInfoPanel').style.display = 'none';
+    }
+  } catch (e) {
+    mt5Connected = false;
+    document.getElementById('connStatusBadge').className = 'connection-status disconnected';
+    document.getElementById('connStatusBadge').innerHTML = '⚠ API Offline';
+  }
+}
+
+// ===== CONNECT TO MT5 =====
+async function connectMT5() {
+  const login = document.getElementById('mt5Login').value;
+  const password = document.getElementById('mt5Password').value;
+  const server = document.getElementById('mt5Server').value;
+  const path = document.getElementById('mt5Path').value;
+
+  if (!login && !password && !server) {
+    // Try auto-connect first
+    try {
+      const res = await fetch(API_URL + '/health');
+      const data = await res.json();
+      if (data.mt5_connected) {
+        showNotif('info', 'Already Connected', 'MT5 is already connected');
+        await checkConnectionStatus();
+        return;
+      }
+    } catch(e) {}
+    
+    showNotif('error', 'Missing Credentials', 'Please enter login, password, and server name');
+    return;
+  }
+
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Connecting...';
+
+  try {
+    const res = await fetch(API_URL + '/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: login ? parseInt(login) : null, password, server, path: path || null })
+    });
+    const data = await res.json();
+    if (data.success) {
+      mt5Connected = true;
+      showNotif('success', 'Connected to MT5', `Welcome ${data.name} | Balance: ${data.balance} ${data.currency}`);
+      await checkConnectionStatus();
+    } else {
+      showNotif('error', 'Connection Failed', data.error || 'Check your credentials');
+    }
+  } catch (err) {
+    showNotif('error', 'Connection Error', err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔌 Connect to MT5';
+  }
+}
+
+// ===== DISCONNECT =====
+async function disconnectMT5() {
+  try {
+    await fetch(API_URL + '/disconnect', { method: 'POST' });
+    mt5Connected = false;
+    showNotif('info', 'Disconnected', 'MT5 session closed');
+    await checkConnectionStatus();
+  } catch (err) {
+    showNotif('error', 'Disconnect Error', err.message);
+  }
+}
+
+// ===== RUN ANALYSIS =====
+async function runAnalysis() {
+  if (!mt5Connected) {
+    showNotif('error', 'Not Connected', 'Please connect to MT5 first');
+    return;
+  }
+
+  const symbol = document.getElementById('symbolInput').value.trim().toUpperCase() || 'XAUUSD';
+  const tf = document.getElementById('tfSelect').value;
+  const threshold = parseInt(document.getElementById('thresholdInput').value) || 70;
+
+  const btn = document.getElementById('analyzeBtn');
+  const spinner = document.getElementById('btnSpinner');
+  const btnText = document.getElementById('btnText');
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Analyzing...';
+
+  try {
+    const res = await fetch(`${API_URL}/analyze?symbol=${symbol}&timeframe=${tf}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'API error');
+    displayResult(json.data, symbol, tf, threshold);
+  } catch (err) {
+    showNotif('error', 'Analysis Failed', err.message);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.textContent = '▶ Analyze';
+  }
+}
+
+function displayResult(result, symbol, tf, threshold) {
+  const { buy_prob, sell_prob, tp, sl, close, adx } = result;
+
+  document.getElementById('statBuy').textContent = buy_prob + '%';
+  document.getElementById('statSell').textContent = sell_prob + '%';
+  document.getElementById('statPrice').textContent = close;
+  document.getElementById('statAdx').textContent = adx;
+
+  updateGauge('buyArc', buy_prob);
+  updateGauge('sellArc', sell_prob);
+  updateGaugeNumber('buyGaugeNum', buy_prob);
+  updateGaugeNumber('sellGaugeNum', sell_prob);
+
+  document.getElementById('buyBar').style.width = buy_prob + '%';
+  document.getElementById('sellBar').style.width = sell_prob + '%';
+  document.getElementById('buyBarPct').textContent = buy_prob + '%';
+  document.getElementById('sellBarPct').textContent = sell_prob + '%';
+
+  document.getElementById('tpVal').textContent = tp || '---';
+  document.getElementById('slVal').textContent = sl || '---';
+  document.getElementById('closeVal').textContent = close;
+  document.getElementById('adxVal2').textContent = adx;
+
+  const actionBadge = document.getElementById('actionBadge');
+  const actionSub = document.getElementById('actionSub');
+  if (buy_prob > sell_prob) {
+    actionBadge.className = 'action-badge buy';
+    actionBadge.innerHTML = '📈 BUY';
+    actionSub.textContent = `Buy probability ${buy_prob}% • ADX: ${adx}`;
+  } else if (sell_prob > buy_prob) {
+    actionBadge.className = 'action-badge sell';
+    actionBadge.innerHTML = '📉 SELL';
+    actionSub.textContent = `Sell probability ${sell_prob}% • ADX: ${adx}`;
+  } else {
+    actionBadge.className = 'action-badge hold';
+    actionBadge.innerHTML = '⏸ HOLD';
+    actionSub.textContent = 'Signals balanced — no clear direction';
+  }
+
+  // Add to history
+  const time = new Date().toLocaleTimeString();
+  const action = buy_prob > sell_prob ? 'BUY' : sell_prob > buy_prob ? 'SELL' : 'HOLD';
+  analysisHistory.unshift({ symbol, tf, buy_prob, sell_prob, close, adx, action, time });
+  if (analysisHistory.length > 20) analysisHistory.pop();
+  updateHistoryTable();
+
+  // Check threshold
+  if (buy_prob > threshold) {
+    showNotif('buy', `${symbol} BUY Signal`, `${buy_prob}% probability | TP: ${tp} | SL: ${sl}`);
+    addAlertLog('buy', symbol, buy_prob, tf);
+  }
+  if (sell_prob > threshold) {
+    showNotif('sell', `${symbol} SELL Signal`, `${sell_prob}% probability | TP: ${tp} | SL: ${sl}`);
+    addAlertLog('sell', symbol, sell_prob, tf);
+  }
+}
+
+function updateHistoryTable() {
+  const container = document.getElementById('historyBody');
+  if (analysisHistory.length === 0) {
+    container.innerHTML = '<div class="empty-state">No analyses yet</div>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="history-table">
+      <thead><tr><th>Symbol</th><th>TF</th><th>Buy %</th><th>Sell %</th><th>Price</th><th>ADX</th><th>Signal</th><th>Time</th></tr></thead>
+      <tbody>
+        ${analysisHistory.map(r => `<tr>
+          <td>${r.symbol}</td><td>${r.tf}</td>
+          <td style="color:var(--buy)">${r.buy_prob}%</td><td style="color:var(--sell)">${r.sell_prob}%</td>
+          <td>${r.close}</td><td style="color:#a78bfa">${r.adx}</td>
+          <td><span class="pill ${r.action.toLowerCase()}">${r.action}</span></td><td>${r.time}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function addAlertLog(type, symbol, prob, tf) {
+  const logDiv = document.getElementById('alertLog');
+  const empty = logDiv.querySelector('.empty-state');
+  if (empty) empty.remove();
+  
+  const item = document.createElement('div');
+  item.className = 'alert-log-item';
+  item.innerHTML = `<div class="alert-log-dot ${type}"></div><span style="font-weight:600;">${symbol}</span><span style="color:var(--muted);font-size:11px;">${tf}</span><span>${type === 'buy' ? '📈' : '📉'} ${prob}%</span><span style="margin-left:auto;color:var(--muted);font-size:11px;">${new Date().toLocaleTimeString()}</span>`;
+  logDiv.insertBefore(item, logDiv.firstChild);
+  if (logDiv.children.length > 10) logDiv.lastChild?.remove();
+}
+
+function showNotif(type, title, message) {
+  const container = document.getElementById('notifContainer');
+  const isBuy = type === 'buy';
+  const isError = type === 'error';
+  const isSuccess = type === 'success';
+  
+  const div = document.createElement('div');
+  div.className = 'notif';
+  div.style.borderLeft = `3px solid ${isBuy ? 'var(--buy)' : isError ? 'var(--warn)' : isSuccess ? 'var(--buy)' : 'var(--muted)'}`;
+  
+  let icon = '🔔';
+  if (isBuy) icon = '📈';
+  else if (type === 'sell') icon = '📉';
+  else if (isError) icon = '⚠️';
+  else if (isSuccess) icon = '✅';
+  
+  div.innerHTML = `
+    <div style="padding:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:24px;">${icon}</div>
+        <div style="flex:1;"><div style="font-weight:700;">${title}</div><div style="font-size:12px;color:var(--muted);">${message}</div></div>
+        <button onclick="this.closest('.notif').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;">✕</button>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 5000);
+}
+
+// ===== AUTO CHECK STATUS ON LOAD =====
+checkConnectionStatus();
+setInterval(checkConnectionStatus, 10000);
+
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+</script>
+</body>
+</html>
