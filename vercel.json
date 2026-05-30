@@ -1,0 +1,13 @@
+{
+  "name": "trading-bot-dashboard",
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/frontend.html",
+      "status": 200
+    }
+  ]
+}
