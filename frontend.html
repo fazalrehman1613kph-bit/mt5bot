@@ -613,6 +613,24 @@
 <div class="notif-container" id="notifContainer"></div>
 
 <main>
+  <!-- BACKEND URL CONFIGURATION PANEL -->
+  <div class="connection-panel">
+    <div class="connection-title">
+      🌐 Backend Configuration
+      <span id="backendStatus" class="connection-status disconnected">● Not Configured</span>
+    </div>
+    <div class="creds-row">
+      <div class="creds-group" style="flex: 2;">
+        <label>BACKEND API URL</label>
+        <input type="text" id="backendUrlInput" placeholder="https://your-ngrok-url.ngrok-free.dev" value="https://scuttle-swab-flatness.ngrok-free.dev">
+      </div>
+      <div class="connect-actions">
+        <button class="connect-btn" onclick="updateBackendUrl()">🔌 Set Backend URL</button>
+      </div>
+    </div>
+    <div id="backendInfo" style="margin-top: 10px; font-size: 12px; color: var(--muted);"></div>
+  </div>
+
   <!-- MT5 CONNECTION PANEL -->
   <div class="connection-panel">
     <div class="connection-title">
@@ -631,10 +649,6 @@
       <div class="creds-group">
         <label>SERVER NAME</label>
         <input type="text" id="mt5Server" placeholder="e.g., ICmarkets-Demo">
-      </div>
-      <div class="creds-group">
-        <label>PATH (optional)</label>
-        <input type="text" id="mt5Path" placeholder="C:\Program Files\MetaTrader 5\terminal64.exe">
       </div>
     </div>
     <div class="connect-actions">
@@ -714,7 +728,21 @@ setInterval(updateClock, 1000); updateClock();
 // ===== STATE =====
 let mt5Connected = false;
 let analysisHistory = [];
-const API_URL = 'https://scuttle-swab-flatness.ngrok-free.dev';
+let API_URL = localStorage.getItem('backend_url') || 'https://scuttle-swab-flatness.ngrok-free.dev';
+
+// Set the input field value
+document.getElementById('backendUrlInput').value = API_URL;
+document.getElementById('backendInfo').innerHTML = `📡 Current backend: ${API_URL}`;
+
+// ===== UPDATE BACKEND URL =====
+function updateBackendUrl() {
+    const newUrl = document.getElementById('backendUrlInput').value;
+    API_URL = newUrl;
+    localStorage.setItem('backend_url', newUrl);
+    document.getElementById('backendInfo').innerHTML = `📡 Current backend: ${API_URL}`;
+    showNotif('success', 'Backend URL Updated', `Now using: ${API_URL}`);
+    checkConnectionStatus();
+}
 
 // ===== GAUGE HELPER =====
 function updateGauge(id, pct) {
@@ -743,6 +771,8 @@ async function checkConnectionStatus() {
       const panel = document.getElementById('accountInfoPanel');
       panel.style.display = 'flex';
       panel.innerHTML = `<span>👤 ${data.name || ''}</span><span>🏦 ${data.broker || ''}</span><span>💰 ${data.balance || 0} ${data.currency || ''}</span><span>⚡ Leverage: ${data.leverage || 0}</span>`;
+      document.getElementById('backendStatus').className = 'connection-status connected';
+      document.getElementById('backendStatus').innerHTML = '● Backend Online';
     } else {
       mt5Connected = false;
       document.getElementById('connStatusBadge').className = 'connection-status disconnected';
@@ -750,11 +780,15 @@ async function checkConnectionStatus() {
       document.getElementById('disconnectBtn').style.display = 'none';
       document.getElementById('connectBtn').style.display = 'flex';
       document.getElementById('accountInfoPanel').style.display = 'none';
+      document.getElementById('backendStatus').className = 'connection-status connected';
+      document.getElementById('backendStatus').innerHTML = '● Backend Online (MT5 not connected)';
     }
   } catch (e) {
     mt5Connected = false;
     document.getElementById('connStatusBadge').className = 'connection-status disconnected';
     document.getElementById('connStatusBadge').innerHTML = '⚠ API Offline';
+    document.getElementById('backendStatus').className = 'connection-status disconnected';
+    document.getElementById('backendStatus').innerHTML = '⚠ Backend Offline';
   }
 }
 
@@ -763,10 +797,8 @@ async function connectMT5() {
   const login = document.getElementById('mt5Login').value;
   const password = document.getElementById('mt5Password').value;
   const server = document.getElementById('mt5Server').value;
-  const path = document.getElementById('mt5Path').value;
 
   if (!login && !password && !server) {
-    // Try auto-connect first
     try {
       const res = await fetch(API_URL + '/health');
       const data = await res.json();
@@ -789,7 +821,7 @@ async function connectMT5() {
     const res = await fetch(API_URL + '/connect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: login ? parseInt(login) : null, password, server, path: path || null })
+      body: JSON.stringify({ login: login ? parseInt(login) : null, password, server, path: null })
     });
     const data = await res.json();
     if (data.success) {
