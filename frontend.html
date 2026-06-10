@@ -719,7 +719,13 @@
   <!-- HISTORY -->
   <div class="history-panel"><div class="panel-title">📋 Analysis History</div><div id="historyBody"><div class="empty-state">No analyses yet</div></div></div>
 </main>
-
+// Force CORS headers on all requests
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    options.headers = options.headers || {};
+    options.headers['ngrok-skip-browser-warning'] = 'true';
+    return originalFetch(url, options);
+};
 <script>
 // ===== CLOCK =====
 function updateClock() { document.getElementById('clock').textContent = new Date().toUTCString().slice(17, 25) + ' UTC'; }
